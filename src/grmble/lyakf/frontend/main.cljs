@@ -1,76 +1,48 @@
 (ns grmble.lyakf.frontend.main
   (:require
-   [grmble.lyakf.frontend.spec]
+   [grmble.lyakf.frontend.spec :as spec]
    [grmble.lyakf.frontend.subscriptions]
    [grmble.lyakf.frontend.view.page :as page]
-   [grmble.lyakf.frontend.util :refer [<sub >evt]]
-   [day8.re-frame.http-fx]
-   [ajax.core :as ajax]
-   [re-frame.core :as rf]
-   [kee-frame.core :as k]
-   [kee-frame.error :as error]))
-
-;; compile time constant - (when DEBUG ...) will be optimized away
-(goog-define ^boolean DEBUG true)
-
-;; another compile time constant - base-path for router
-(goog-define ^String BASE-PATH "")
+   [grmble.lyakf.frontend.util :refer [<sub]]
+   [reagent.dom :as rdom]
+   [re-frame.core :as rf]))
 
 ;; println prints to the browser console
 (enable-console-print!)
 
-(def routes
-  [BASE-PATH
-   ["/" :home]
-   ["/data" :data]
-   ["/config" :config]
-   ["/dev" :dev]])
-
 (def initial-db
-  {:ui {:initialized? false
+  {:ui {:initialized? true
         :current-tab :home}
-   :config {:show-dev-tab? false}
+   :config {:show-dev-tab? true}
    :training-programs {}})
 
-;;
-;; https://day8.github.io/re-frame/Loading-Initial-Data/
-;;
-(rf/reg-event-fx :load-config
-                 (fn [_ _]
-                   {:http-xhrio {:uri             "config.json"
-                                 :method          :get
-                                 :response-format (ajax/json-response-format {:keywords? true})
-                                 :on-success [:config-loaded]
-                                 :on-error [:config-not-found]}}))
-(rf/reg-event-db :config-loaded
-                 (fn [db [_ config]]
-                   (-> db
-                       (assoc :config (merge (:config db) config))
-                       (assoc-in [:ui :initialized?] true))))
-(rf/reg-event-db :config-not-found
-                 (fn [db _]
-                   (assoc-in db [:ui :initialized?] true)))
+(rf/reg-event-db :initial-db
+                 (fn [_ [_ db]] db))
+
+(rf/reg-event-db :set-current-tab
+                 (fn [db [_ tab]]
+                   (assoc-in db [:ui :current-tab] tab)))
 
 (defn loader [body]
-  (error/boundary
-   (if (and true (<sub [:initialized?]))
-     body
-     [page/loading-page])))
+  (if (and true (<sub [:ui :initialized?]))
+    body
+    [page/loading-page]))
 
+(def debug? ^boolean goog.DEBUG)
+(when debug?
+  ;; (rf/reg-global-interceptor rf/debug)
+  (rf/reg-global-interceptor
+   (rf/enrich spec/validate-db)))
 
 ;; init! is called initially by shadlow-cljs (init-fn)
 ;; after-load! is called after every load
 (defn ^:dev/after-load after-load! []
-  (k/start! {;; renders into dom element #app - hard coded
-             :root-component [loader [page/current-page]]
-             :initial-db initial-db
-             :app-db-spec ::grmble.lyakf.frontend.spec/db-spec
-             :routes routes
-             ;; route-hashing does not work with gh pages deployment
-             ;; via compile time BASE-PATH
-             :hash-routing? false}))
+  (rf/clear-subscription-cache!)
+  (let [element (.getElementById js/document "app")]
+    (rdom/unmount-component-at-node element)
+    (rdom/render [loader [page/current-page]] element)))
 (defn init! []
-  (>evt [:load-config])
+  (rf/dispatch-sync [:initial-db initial-db])
   (after-load!)
   (println "init! complete"))
 

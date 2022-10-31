@@ -2,13 +2,13 @@
   "Common page layout"
   (:require
    [grmble.lyakf.frontend.view.dev :as dev]
-   [grmble.lyakf.frontend.util :refer [<sub]]
-   [reagent.core :as r]
-   [kee-frame.core :as k]))
+   [grmble.lyakf.frontend.util :refer [<sub >evt]]
+   [reagent.core :as r]))
 
 (defn nav-link [current-tab title tab]
   [:a.navbar-item
-   {:href  (k/path-for [tab])
+   {:href  "#"
+    :on-click #(>evt [:set-current-tab tab])
     :class (when (= tab current-tab) "is-active")}
    title])
 
@@ -16,7 +16,8 @@
   (r/with-let [expanded? (r/atom false)]
     [:nav.navbar.is-info>div.container
      [:div.navbar-brand
-      [:a.navbar-item {:href  (k/path-for [:home])
+      [:a.navbar-item {:href  "#"
+                       :on-click #(>evt [:set-current-tab :home])
                        :style {:font-weight :bold}} "Learn You A Kee-Frame"]
       [:span.navbar-burger.burger
        {:data-target :nav-menu
@@ -29,7 +30,7 @@
        [nav-link tab "Home" :home]
        [nav-link tab "Data" :data]
        [nav-link tab "Config" :config]
-       (when (<sub [:show-dev-tab?])
+       (when (<sub [:config :show-dev-tab?])
          [nav-link tab "Dev" :dev])]]]))
 
 
@@ -64,16 +65,15 @@
 (defn loading-tab []
   [:button.button.is-loading.is-warning])
 
-
-
 (defn current-page []
-  [:<>
-   (k/case-route (comp :name :data)
-                 :home [show-tab :home [home-tab]]
-                 :data [show-tab :data [data-tab]]
-                 :config [show-tab :config [config-tab]]
-                 :dev [show-tab :dev [dev/dev-tab]]
-                 [loading-tab])])
+  (let [tab (<sub [:ui :current-tab])]
+    [:<>
+     (case tab
+       :home [show-tab :home [home-tab]]
+       :data [show-tab :data [data-tab]]
+       :config [show-tab :config [config-tab]]
+       :dev [show-tab :dev [dev/dev-tab]]
+       :else [loading-tab])]))
 
 (defn loading-page []
   [:<>
