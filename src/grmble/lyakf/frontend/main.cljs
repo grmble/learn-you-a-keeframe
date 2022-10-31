@@ -41,14 +41,14 @@
                  (fn [db [_ config]]
                    (-> db
                        (assoc :config (merge (:config db) config))
-                       (assoc-in [:ui :initialized?] true))))
+                       (assoc-in [:config :initialized?] true))))
 (rf/reg-event-db :config-not-found
                  (fn [db _]
-                   (assoc-in db [:ui :initialized?] true)))
+                   (assoc-in db [:config :initialized?] true)))
 
 (defn loader [body]
   (error/boundary
-   (if (and true (<sub [:initialized?]))
+   (if (and true (<sub [:config :initialized?]))
      body
      [page/loading-page])))
 
